@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 
 from pydantic import BaseModel, EmailStr
 
@@ -36,4 +37,28 @@ class RefreshToken(TokenBase):
 class TokenData(BaseModel):
     username: Optional[str] = None
     scopes: List[str] = []
+    
+
+class BlogBase(BaseModel):
+    title: str
+    chief_description: str
+    content: str
+    
+    
+class BlogCreate(BlogBase):
+    pass
+
+
+class BlogOut(BlogBase):
+    id: int
+    author: str
+    created_time: datetime
+    modified_time: Optional[datetime] = None
+    
+    class Config:
+        orm_mode = True
+        
+
+class BlogUpdate(BlogBase):
+    pass
     

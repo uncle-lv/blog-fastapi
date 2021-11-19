@@ -127,3 +127,85 @@ async def refresh_access_token(refresh_token: schemas.RefreshToken):
 @app.get('/api/auth/current_user', response_model=schemas.UserOut, status_code=status.HTTP_200_OK)
 async def get_current_user(current_user: models.User = Depends(security.get_current_user)):
     return current_user
+
+
+@app.get('/api/blogs', status_code=status.HTTP_200_OK)
+async def get_blogs(skip: int = 0, limit: int = 50, db: Session = Depends(db.get_db)):
+    blogs = []
+    result = crud.get_blogs(db, skip, limit)
+    
+    for row in result:
+        blog = schemas.BlogOut(
+            id=row['id'],
+            author=row['username'],
+            title=row['title'],
+            chief_description=row['chief_description'],
+            content=row['content'],
+            created_time=row['created_time'],
+            modified_time=row['modified_time']
+        )
+        blogs.append(blog)
+    
+    return blogs
+
+
+@app.get('/api/blogs/{id}', status_code=status.HTTP_200_OK)
+async def get_blog_by_id(id: int, db: Session = Depends(db.get_db)):
+    result_row = crud.get_blog(db, id)
+    if result_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Blog not found'
+        )
+    
+    blog = schemas.BlogOut(
+        id=result_row['id'],
+        author=result_row['username'],
+        title=result_row['title'],
+        chief_description=result_row['chief_description'],
+        content=result_row['content'],
+        created_time=result_row['created_time'],
+        modified_time=result_row['modified_time']
+        )
+        
+    return blog
+
+
+@app.post('/api/blogs', response_model=schemas.BlogOut, status_code=status.HTTP_201_CREATED)
+async def create_blog(blog: schemas.BlogCreate, current_user: models.User = Depends(security.get_current_user), db: Session = Depends(db.get_db)):
+    return crud.create_blog(db, blog, current_user.id)
+
+
+@app.patch('/api/blogs/{id}', status_code=status.HTTP_200_OK)
+async def update_blog(blog: schemas.BlogUpdate, id: int, current_user: models.User = Depends(security.get_current_user), db: Session = Depends(db.get_db)):
+    db_blog = crud.get_blog_by_id(db, id)
+    author = crud.get_user(db, db_blog.author)
+    if author.username != current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Permission denied'
+        )
+    
+    crud.update_blog(db, id, blog)
+    return crud.get_blog(db, id)
+
+
+@app.delete('/api/blogs/{id}', status_code=status.HTTP_204_NO_CONTENT)
+async def del_blog(id: int, current_user: models.User = Depends(security.get_current_user), db: Session = Depends(db.get_db)):
+    db_blog = crud.get_blog_by_id(db, id)
+    
+    if db_blog is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Blog not found'
+        )
+    
+    author = crud.get_user(db, db_blog.author)
+    if author.username != current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Permission denied'
+        )
+        
+    crud.del_blog(db, id)
+    return
